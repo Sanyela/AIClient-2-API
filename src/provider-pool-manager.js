@@ -461,17 +461,51 @@ export class ProviderPoolManager {
             // 更新所有待保存的 providerType
             for (const providerType of typesToSave) {
                 if (this.providerStatus[providerType]) {
-                    currentPools[providerType] = this.providerStatus[providerType].map(p => {
-                        // Convert Date objects to ISOString if they exist
-                        const config = { ...p.config };
-                        if (config.lastUsed instanceof Date) {
-                            config.lastUsed = config.lastUsed.toISOString();
+                    // 如果文件中已有该类型的配置，则合并更新；否则直接使用内存中的配置
+                    if (currentPools[providerType]) {
+                        // 创建一个 UUID 映射，方便查找
+                        const memoryProvidersMap = new Map();
+                        for (const p of this.providerStatus[providerType]) {
+                            const config = { ...p.config };
+                            if (config.lastUsed instanceof Date) {
+                                config.lastUsed = config.lastUsed.toISOString();
+                            }
+                            if (config.lastErrorTime instanceof Date) {
+                                config.lastErrorTime = config.lastErrorTime.toISOString();
+                            }
+                            memoryProvidersMap.set(config.uuid, config);
                         }
-                        if (config.lastErrorTime instanceof Date) {
-                            config.lastErrorTime = config.lastErrorTime.toISOString();
+                        
+                        // 更新文件中已有的 providers
+                        currentPools[providerType] = currentPools[providerType].map(fileProvider => {
+                            const memoryProvider = memoryProvidersMap.get(fileProvider.uuid);
+                            if (memoryProvider) {
+                                // 如果内存中有这个 provider，使用内存中的数据（已更新）
+                                memoryProvidersMap.delete(fileProvider.uuid); // 标记为已处理
+                                return memoryProvider;
+                            } else {
+                                // 如果内存中没有这个 provider，保留文件中的数据
+                                return fileProvider;
+                            }
+                        });
+                        
+                        // 添加内存中新增的 providers（如果有）
+                        for (const newProvider of memoryProvidersMap.values()) {
+                            currentPools[providerType].push(newProvider);
                         }
-                        return config;
-                    });
+                    } else {
+                        // 文件中没有该类型，直接使用内存中的配置
+                        currentPools[providerType] = this.providerStatus[providerType].map(p => {
+                            const config = { ...p.config };
+                            if (config.lastUsed instanceof Date) {
+                                config.lastUsed = config.lastUsed.toISOString();
+                            }
+                            if (config.lastErrorTime instanceof Date) {
+                                config.lastErrorTime = config.lastErrorTime.toISOString();
+                            }
+                            return config;
+                        });
+                    }
                 } else {
                     this._log('warn', `Attempted to save unknown providerType: ${providerType}`);
                 }
