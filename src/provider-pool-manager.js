@@ -484,5 +484,41 @@ export class ProviderPoolManager {
             this._log('error', `Failed to write provider_pools.json: ${error.message}`);
         }
     }
+    
+    /**
+     * 更新指定 provider 的凭证信息
+     * @param {string} uuid - Provider UUID
+     * @param {string} providerType - Provider 类型
+     * @param {Object} credentials - 要更新的凭证信息
+     */
+    async updateProviderCredentials(uuid, providerType, credentials) {
+        try {
+            // 查找对应的 provider
+            const providers = this.providerStatus[providerType];
+            if (!providers) {
+                this._log('warn', `Provider type ${providerType} not found`);
+                return false;
+            }
+            
+            const provider = providers.find(p => p.config.uuid === uuid);
+            if (!provider) {
+                this._log('warn', `Provider ${uuid} not found in ${providerType}`);
+                return false;
+            }
+            
+            // 更新内存中的配置
+            Object.assign(provider.config, credentials);
+            this._log('info', `Updated credentials for provider ${uuid} in memory`);
+            
+            // 标记需要保存到文件
+            this.pendingSaves.add(providerType);
+            this._debouncedSave(providerType);
+            
+            return true;
+        } catch (error) {
+            this._log('error', `Failed to update provider credentials: ${error.message}`);
+            return false;
+        }
+    }
 
 }

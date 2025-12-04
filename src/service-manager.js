@@ -71,6 +71,8 @@ export async function getApiService(config, requestedModel = null) {
             // 合并选中的提供者配置到当前请求的 config 中
             serviceConfig = deepmerge(config, selectedProviderConfig);
             delete serviceConfig.providerPools; // 移除 providerPools 属性
+            // 传入 providerPoolManager 引用，以便服务在刷新 token 后更新配置
+            serviceConfig.providerPoolManager = providerPoolManager;
             config.uuid = serviceConfig.uuid;
             console.log(`[API Service] Using pooled configuration for ${config.MODEL_PROVIDER}: ${serviceConfig.uuid}${requestedModel ? ` (model: ${requestedModel})` : ''}`);
         } else {

@@ -497,6 +497,22 @@ async initializeAuth(forceRefresh = false) {
                     updatedTokenData.profileArn = this.profileArn;
                 }
                 await saveCredentialsToFile(tokenFilePath, updatedTokenData);
+                
+                // 如果使用的是 base64 配置，更新配置中的 base64 值
+                if (this.config.KIRO_OAUTH_CREDS_BASE64) {
+                    const newBase64 = Buffer.from(JSON.stringify(updatedTokenData)).toString('base64');
+                    this.config.KIRO_OAUTH_CREDS_BASE64 = newBase64;
+                    console.log('[Kiro Auth] Updated KIRO_OAUTH_CREDS_BASE64 in config');
+                    
+                    // 如果有 providerPoolManager，通知它更新配置文件
+                    if (this.config.providerPoolManager) {
+                        await this.config.providerPoolManager.updateProviderCredentials(
+                            this.config.uuid,
+                            'claude-kiro-oauth',
+                            { KIRO_OAUTH_CREDS_BASE64: newBase64 }
+                        );
+                    }
+                }
             } else {
                 throw new Error('Invalid refresh response: Missing accessToken');
             }
